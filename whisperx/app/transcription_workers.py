@@ -2,11 +2,12 @@ from PySide6.QtCore import QRunnable, QObject, Signal
 
 import traceback
 import time
-import torch
 from typing import Optional, Dict, Any, Callable
 
 from whisperx.app.app_config import TranscriptionConfig
-from whisperx.app.whisperx_bridge import WhisperXBridge
+
+# Lazy imports - only import heavy modules when actually needed
+# This significantly speeds up application startup time
 
 class WorkerSignals(QObject):
     """Signals for worker thread communication."""
@@ -30,7 +31,8 @@ class ModelLoaderWorker(QRunnable):
         super().__init__()
         self.config = config
         self.signals = WorkerSignals()
-        self.bridge = WhisperXBridge()
+        # Don't create bridge here - delay until run() to avoid importing heavy modules at startup
+        self.bridge = None
 
         # progress
         self._progress_callback = self._on_progress_update
@@ -47,6 +49,13 @@ class ModelLoaderWorker(QRunnable):
     def run(self):
         # Model loading
         try:
+            # Lazy import - only import when we actually need it
+            import torch
+            from whisperx.app.whisperx_bridge import WhisperXBridge
+
+            # Create bridge now (not in __init__)
+            self.bridge = WhisperXBridge()
+
             # CRITICAL: Initialize CUDA context in this worker thread
             # This prevents segmentation faults when loading CUDA models
             if torch.cuda.is_available():
@@ -87,7 +96,8 @@ class TranscriptionWorker(QRunnable):
         self.config = config
         self.models = models
         self.signals = WorkerSignals()
-        self.bridge = WhisperXBridge()
+        # Don't create bridge here - delay until run() to avoid importing heavy modules at startup
+        self.bridge = None
 
         # progress trackung
         self._progress_callback = self._on_progress_update
@@ -113,6 +123,13 @@ class TranscriptionWorker(QRunnable):
     def run(self):
         # Execute transcription process
         try:
+            # Lazy import - only import when we actually need it
+            import torch
+            from whisperx.app.whisperx_bridge import WhisperXBridge
+
+            # Create bridge now (not in __init__)
+            self.bridge = WhisperXBridge()
+
             # CRITICAL: Initialize CUDA context in this worker thread
             # This prevents segmentation faults when using models loaded in a different thread
             if torch.cuda.is_available():

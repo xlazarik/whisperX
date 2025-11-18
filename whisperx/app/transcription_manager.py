@@ -9,7 +9,9 @@ from typing import Dict, Any, Optional
 
 from whisperx.app.app_config import AppConfig, TranscriptionConfig
 from whisperx.app.transcription_workers import ModelLoaderWorker, TranscriptionWorker
-from whisperx.app.whisperx_bridge import WhisperXBridge
+
+# Lazy import - WhisperXBridge is only needed for direct transcription, not during normal operation
+# This speeds up application startup time
 
 
 class TranscriptionManager(QObject):
@@ -181,6 +183,9 @@ class TranscriptionManager(QObject):
             return
 
         try:
+            # Lazy import - only import when actually needed
+            from whisperx.app.whisperx_bridge import WhisperXBridge
+
             # Update configuration
             self.app_config.update_config(audio_file=audio_file, **ui_config)
             config = self.app_config.get_current_config()
@@ -229,10 +234,15 @@ class TranscriptionManager(QObject):
 
             # Force garbage collection
             import gc
-            import torch
             gc.collect()
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+
+            # Lazy import - only import torch if we actually need to clear CUDA cache
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            except ImportError:
+                pass  # torch not available, skip CUDA cleanup
 
     def _on_models_loaded(self, models: Dict[str, Any]) -> None:
         """Handle successful model loading."""
