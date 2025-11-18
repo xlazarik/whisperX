@@ -91,13 +91,16 @@ class MainWindow(QMainWindow):
         self.show()
 
         ########################################################################
-        # UPDATE APP SETTINGS LOADED FROM JSON STYLESHEET 
+        # UPDATE APP SETTINGS LOADED FROM JSON STYLESHEET
         # ITS IMPORTANT TO RUN THIS AFTER SHOWING THE WINDOW
         # THIS PROCESS WILL RUN ON A SEPARATE THREAD WHEN GENERATING NEW ICONS
         # TO PREVENT THE WINDOW FROM BEING UNRESPONSIVE
+        #
+        # DEFERRED: Using QTimer to delay by 50ms for faster initial window display
         ########################################################################
         # self = QMainWindow class
-        QAppSettings.updateAppSettings(self)
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(50, lambda: QAppSettings.updateAppSettings(self))
 
         self.app_functions = GUIFunctions(self)
 
@@ -108,9 +111,9 @@ class MainWindow(QMainWindow):
         self.ui.transcrHistoryList.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.ui.transcrHistoryList.customContextMenuRequested.connect(self._showHistoryContextMenu)
 
-        # Load initial history
+        # Load initial history - deferred by 100ms for faster startup
         if self.historyManager:
-            self._refreshHistoryList()
+            QTimer.singleShot(100, self._refreshHistoryList)
 
         # self.ui.transcrHistoryList.setStyleSheet("""
         #             QListWidget {

@@ -229,10 +229,15 @@ class TranscriptionManager(QObject):
 
             # Force garbage collection
             import gc
-            import torch
-            gc.collect()
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+            # Lazy import torch only when cleaning up
+            try:
+                import torch
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            except ImportError:
+                # torch not available, just do gc
+                gc.collect()
 
     def _on_models_loaded(self, models: Dict[str, Any]) -> None:
         """Handle successful model loading."""

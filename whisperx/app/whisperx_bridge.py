@@ -1,20 +1,19 @@
 """
 Bridge between Qt application and WhisperX functionality.
 Adapts WhisperX modules for use in Qt threading environment.
+
+Note: Heavy ML imports (torch, whisperx modules) are done lazily inside methods
+to prevent slow startup. This maintains the lazy loading pattern from whisperx.__init__.py
 """
 import time
 import os
 from typing import Dict, Any, Optional, Callable
-import torch
 
-# WhisperX imports
-from whisperx.asr import load_model
-from whisperx.alignment import load_align_model, align
-from whisperx.audio import load_audio
-from whisperx.diarize import DiarizationPipeline, assign_word_speakers
-from whisperx.types import TranscriptionResult
-from whisperx.utils import format_timestamp
+# Import TranscriptionConfig for type hints (lightweight)
 from whisperx.app.app_config import TranscriptionConfig
+
+# Heavy imports (torch, whisperx modules) are deferred to methods where they're used
+# This prevents ~1-3 second import time at application startup
 
 class WhisperXBridge:
     def __init__(self):
@@ -25,6 +24,12 @@ class WhisperXBridge:
                     progress_callback: Optional[Callable] = None,
                     status_callback: Optional[Callable] = None) -> Dict[str, Any]:
         """ Load all required models"""
+
+        # Lazy imports: Only import heavy ML libraries when actually loading models
+        import torch
+        from whisperx.asr import load_model
+        from whisperx.alignment import load_align_model
+        from whisperx.diarize import DiarizationPipeline
 
         models = {}
         total_steps = 3 # ASR, alignment, diarization
@@ -104,6 +109,11 @@ class WhisperXBridge:
                          status_callback: Optional[Callable] = None) -> Dict[str, Any]:
         """Perform complete transcription pipeline with real progress tracking."""
 
+        # Lazy imports: Only import when transcribing
+        from whisperx.audio import load_audio
+        from whisperx.alignment import align
+        from whisperx.diarize import assign_word_speakers
+
         if models is None:
             models = self.loaded_models
 
@@ -159,8 +169,8 @@ class WhisperXBridge:
                 # chunk_size=config.chunk_size,
                 print_progress=False,  # Disable print, use callback
                 combined_progress=False,  # We handle combination ourselves
-                progress_callback=None, #lambda p: phase_progress_callback('transcription', p),
-                status_callback=None #phase_status_callback
+                progress_callback=lambda p: phase_progress_callback('transcription', p),
+                status_callback=phase_status_callback
             )
             end = time.time()
             print(f"Transcription took {end - start:.2f} seconds")
@@ -235,6 +245,10 @@ class WhisperXBridge:
     def _format_transcription_result(self, result: Dict[str, Any],
                                      config: TranscriptionConfig) -> Dict[str, str]:
         """Format transcription results for display using SRT timestamp format."""
+
+        # Lazy import: Only import when formatting
+        from whisperx.utils import format_timestamp
+
         formatted = {
             'raw': '',
             'timestamped': '',
