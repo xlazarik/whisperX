@@ -64,16 +64,15 @@ class WhisperXBridge:
             current_step += 1
             update_progress(0)
 
-            # Load alignment model if needed
-            if config.enable_alignment:
+            # Load alignment model if needed and language is specified
+            # If language is None (auto-detect), alignment model will be loaded
+            # after transcription detects the language
+            if config.enable_alignment and config.language is not None:
                 if status_callback:
                     status_callback("Loading alignment model...")
 
-                # Determine language for alignment model
-                language = config.language or "en"
-
                 align_model, align_metadata = load_align_model(
-                    language_code=language,
+                    language_code=config.language,
                     device=whisperx_params['device']
                 )
                 models['alignment'] = {
@@ -176,6 +175,29 @@ class WhisperXBridge:
             print(f"Transcription took {end - start:.2f} seconds")
             result['transcription'] = transcribe_result
             current_phase_start += phase_weights['transcription']
+
+            # If alignment is needed but model wasn't loaded (due to auto-detect),
+            # load it now with the detected language
+            if config.enable_alignment and 'alignment' not in models:
+                detected_language = transcribe_result.get('language')
+                if detected_language:
+                    if status_callback:
+                        status_callback(f"Loading alignment model for detected language: {detected_language}...")
+
+                    from whisperx.alignment import load_align_model
+                    try:
+                        align_model, align_metadata = load_align_model(
+                            language_code=detected_language,
+                            device=config.device
+                        )
+                        models['alignment'] = {
+                            'model': align_model,
+                            'metadata': align_metadata
+                        }
+                        print(f"Alignment model loaded for language: {detected_language}")
+                    except Exception as e:
+                        print(f"Warning: Could not load alignment model for {detected_language}: {e}")
+                        # Continue without alignment
 
             # Phase 3: Alignment with real progress
             if config.enable_alignment and 'alignment' in models:

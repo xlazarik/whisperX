@@ -86,6 +86,11 @@ class AppConfig:
         for key, value in kwargs.items():
             print("KEY VAL", key, " ", value)
             if hasattr(self._current_config, key):
+                # Normalize empty strings to None for language field
+                # WhisperX expects None for auto-detection, not empty string
+                if key == 'language' and value == "":
+                    value = None
+                    print(f"Normalized empty language string to None for auto-detection")
                 print("HAS KEY VAL", key, " ", value)
                 setattr(self._current_config, key, value)
         self.save_config()
