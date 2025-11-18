@@ -2,6 +2,7 @@ from PySide6.QtCore import QRunnable, QObject, Signal
 
 import traceback
 import time
+import torch
 from typing import Optional, Dict, Any, Callable
 
 from whisperx.app.app_config import TranscriptionConfig
@@ -46,6 +47,20 @@ class ModelLoaderWorker(QRunnable):
     def run(self):
         # Model loading
         try:
+            # CRITICAL: Initialize CUDA context in this worker thread
+            # This prevents segmentation faults when loading CUDA models
+            if torch.cuda.is_available():
+                # Set thread count to 1 for better stability with CUDA
+                torch.set_num_threads(1)
+
+                # Initialize CUDA context in this thread
+                device_id = self.config.device_index if self.config.device == 'cuda' else 0
+                with torch.cuda.device(device_id):
+                    # Force CUDA initialization in this thread
+                    torch.cuda.current_device()
+                    # Synchronize to ensure CUDA is ready
+                    torch.cuda.synchronize()
+
             self.signals.status_updated.emit("Loading model")
             self.signals.progress_updated.emit(0)
 
@@ -98,6 +113,20 @@ class TranscriptionWorker(QRunnable):
     def run(self):
         # Execute transcription process
         try:
+            # CRITICAL: Initialize CUDA context in this worker thread
+            # This prevents segmentation faults when using models loaded in a different thread
+            if torch.cuda.is_available():
+                # Set thread count to 1 for better stability with CUDA
+                torch.set_num_threads(1)
+
+                # Initialize CUDA context in this thread
+                device_id = self.config.device_index if self.config.device == 'cuda' else 0
+                with torch.cuda.device(device_id):
+                    # Force CUDA initialization in this thread
+                    torch.cuda.current_device()
+                    # Synchronize to ensure CUDA is ready
+                    torch.cuda.synchronize()
+
             if not self.config.audio_file:
                 raise ValueError("No audio file specified!")
 
