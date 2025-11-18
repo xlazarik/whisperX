@@ -5,15 +5,12 @@ Adapts WhisperX modules for use in Qt threading environment.
 import time
 import os
 from typing import Dict, Any, Optional, Callable
-import torch
 
-# WhisperX imports
-from whisperx.asr import load_model
-from whisperx.alignment import load_align_model, align
-from whisperx.audio import load_audio
-from whisperx.diarize import DiarizationPipeline, assign_word_speakers
-from whisperx.types import TranscriptionResult
-from whisperx.utils import format_timestamp
+# Lazy imports - only import heavy modules when actually needed
+# This significantly speeds up application startup time
+# torch, whisperx.asr, whisperx.alignment, whisperx.audio, whisperx.diarize, etc.
+# will be imported inside methods when they're first used
+
 from whisperx.app.app_config import TranscriptionConfig
 
 class WhisperXBridge:
@@ -25,6 +22,12 @@ class WhisperXBridge:
                     progress_callback: Optional[Callable] = None,
                     status_callback: Optional[Callable] = None) -> Dict[str, Any]:
         """ Load all required models"""
+
+        # Lazy imports - only import when actually loading models
+        import torch
+        from whisperx.asr import load_model
+        from whisperx.alignment import load_align_model
+        from whisperx.diarize import DiarizationPipeline
 
         models = {}
         total_steps = 3 # ASR, alignment, diarization
@@ -103,6 +106,11 @@ class WhisperXBridge:
                          progress_callback: Optional[Callable] = None,
                          status_callback: Optional[Callable] = None) -> Dict[str, Any]:
         """Perform complete transcription pipeline with real progress tracking."""
+
+        # Lazy imports - only import when actually transcribing
+        from whisperx.audio import load_audio
+        from whisperx.alignment import align
+        from whisperx.diarize import assign_word_speakers
 
         if models is None:
             models = self.loaded_models
@@ -235,6 +243,9 @@ class WhisperXBridge:
     def _format_transcription_result(self, result: Dict[str, Any],
                                      config: TranscriptionConfig) -> Dict[str, str]:
         """Format transcription results for display using SRT timestamp format."""
+        # Lazy import - only import when actually formatting
+        from whisperx.utils import format_timestamp
+
         formatted = {
             'raw': '',
             'timestamped': '',

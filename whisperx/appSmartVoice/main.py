@@ -27,7 +27,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 ########################################################################
 from whisperx.app.transcription_manager import TranscriptionManager
 from whisperx.appSmartVoice.src.gui_functions import GUIFunctions
-from whisperx.SubtitlesProcessor import SubtitlesProcessor
+# SubtitlesProcessor is only used for SRT download - lazy import to speed up startup
 
 from whisperx.app.history_manager import HistoryManager, TranscriptionRecord
 from whisperx.appSmartVoice.src.history_item_widget import HistoryItemWidget
