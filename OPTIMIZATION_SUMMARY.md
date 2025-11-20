@@ -23,16 +23,19 @@ These imports were triggered when `main.py` imported `TranscriptionManager`, whi
 **File**: `whisperx/app/whisperx_bridge.py`
 
 **Changes**:
-- Removed all heavy imports from module level (lines 8-16)
-- Moved imports into methods where they're actually used:
-  - `load_models()`: imports `torch`, `load_model`, `load_align_model`, `DiarizationPipeline`
-  - `transcribe_audio()`: imports `load_audio`, `align`, `assign_word_speakers`
+- Kept torch at module level to avoid threading/CUDA initialization issues
+- Moved heavy WhisperX module imports into methods where they're used:
+  - `load_models()`: imports `load_model`, `load_align_model`, `DiarizationPipeline`
+  - `transcribe_audio()`: imports `load_audio`, `align` (when needed), `assign_word_speakers` (when needed)
   - `_format_transcription_result()`: imports `format_timestamp`
 
 **Impact**:
-- PyTorch and ML libraries only load when user clicks "Run Transcription"
+- Heavy WhisperX modules (transformers, ctranslate2, etc.) only load when user clicks "Run Transcription"
+- torch imported at module level ensures proper CUDA initialization before worker threads
 - Respects whisperX's original lazy loading design
 - **Expected improvement: 1-2 minutes → 2-3 seconds startup time**
+
+**Note**: torch import (~500ms-1s) happens at startup to prevent threading issues, but heavy WhisperX modules (remaining ~30-60s) are deferred.
 
 ### 2. Lazy Imports in transcription_manager.py ✅
 **File**: `whisperx/app/transcription_manager.py`

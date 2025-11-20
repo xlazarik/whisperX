@@ -2,18 +2,21 @@
 Bridge between Qt application and WhisperX functionality.
 Adapts WhisperX modules for use in Qt threading environment.
 
-Note: Heavy ML imports (torch, whisperx modules) are done lazily inside methods
-to prevent slow startup. This maintains the lazy loading pattern from whisperx.__init__.py
+Note: torch is imported at module level to ensure proper CUDA initialization
+before worker threads start. Heavy WhisperX modules are imported lazily inside
+methods to prevent slow startup. This maintains the lazy loading pattern from
+whisperx.__init__.py
 """
 import time
 import os
 from typing import Dict, Any, Optional, Callable
+import torch  # Import torch early to avoid threading/CUDA initialization issues
 
 # Import TranscriptionConfig for type hints (lightweight)
 from whisperx.app.app_config import TranscriptionConfig
 
-# Heavy imports (torch, whisperx modules) are deferred to methods where they're used
-# This prevents ~1-3 second import time at application startup
+# Heavy WhisperX modules are deferred to methods where they're used
+# This prevents most of the slow import time at application startup
 
 class WhisperXBridge:
     def __init__(self):
@@ -25,8 +28,7 @@ class WhisperXBridge:
                     status_callback: Optional[Callable] = None) -> Dict[str, Any]:
         """ Load all required models"""
 
-        # Lazy imports: Only import heavy ML libraries when actually loading models
-        import torch
+        # Lazy imports: Only import heavy WhisperX modules when actually loading models
         from whisperx.asr import load_model
         from whisperx.alignment import load_align_model
         from whisperx.diarize import DiarizationPipeline
@@ -108,10 +110,8 @@ class WhisperXBridge:
                          status_callback: Optional[Callable] = None) -> Dict[str, Any]:
         """Perform complete transcription pipeline with real progress tracking."""
 
-        # Lazy imports: Only import when transcribing
+        # Lazy imports: Only import heavy WhisperX modules when transcribing
         from whisperx.audio import load_audio
-        from whisperx.alignment import align
-        from whisperx.diarize import assign_word_speakers
 
         if models is None:
             models = self.loaded_models
@@ -184,6 +184,7 @@ class WhisperXBridge:
                     if status_callback:
                         status_callback(f"Loading alignment model for detected language: {detected_language}...")
 
+                    # Lazy import: load_align_model only when needed for auto-detected language
                     from whisperx.alignment import load_align_model
                     try:
                         align_model, align_metadata = load_align_model(
@@ -203,6 +204,9 @@ class WhisperXBridge:
             if config.enable_alignment and 'alignment' in models:
                 if status_callback:
                     status_callback("Aligning timestamps...")
+
+                # Import align function only when needed
+                from whisperx.alignment import align
 
                 align_model = models['alignment']['model']
                 align_metadata = models['alignment']['metadata']
@@ -228,6 +232,9 @@ class WhisperXBridge:
             if config.enable_diarization and 'diarization' in models:
                 if status_callback:
                     status_callback("Identifying speakers...")
+
+                # Import diarization function only when needed
+                from whisperx.diarize import assign_word_speakers
 
                 # Diarization progress (manual since pyannote doesn't expose progress)
                 phase_progress_callback('diarization', 20)
