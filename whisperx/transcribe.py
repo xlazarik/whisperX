@@ -4,15 +4,19 @@ import os
 import warnings
 
 import numpy as np
-import torch
 
-from whisperx.alignment import align, load_align_model
-from whisperx.asr import load_model
-from whisperx.audio import load_audio
-from whisperx.diarize import DiarizationPipeline, assign_word_speakers
+
+# from whisperx.alignment import align, load_align_model
+# from whisperx.asr import load_model
+# from whisperx.audio import load_audio
+# from whisperx.diarize import DiarizationPipeline, assign_word_speakers
+# from whisperx.types import AlignedTranscriptionResult, TranscriptionResult
+# from whisperx.utils import LANGUAGES, TO_LANGUAGE_CODE, get_writer
+from typing import Callable, Optional
+
+from whisperx import align, load_align_model, load_model, load_audio, assign_word_speakers
 from whisperx.types import AlignedTranscriptionResult, TranscriptionResult
 from whisperx.utils import LANGUAGES, TO_LANGUAGE_CODE, get_writer
-from typing import Callable, Optional
 
 def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     """Transcription task to be called from CLI.
@@ -21,6 +25,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
         args: Dictionary of command-line arguments.
         parser: argparse.ArgumentParser object.
     """
+    import torch
     # fmt: off
 
     model_name: str = args.pop("model")
@@ -203,6 +208,8 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
 
     # >> Diarize
     if diarize:
+        from whisperx.diarize import DiarizationPipeline
+
         if hf_token is None:
             print(
                 "Warning, no --hf_token used, needs to be saved in environment variable, otherwise will throw error loading diarization model..."
@@ -267,6 +274,8 @@ def transcribe_with_callbacks(
     Returns:
         Dictionary containing transcription results and optionally loaded models
     """
+    status_callback("Importing pytorch...")
+    import torch
 
     # Progress phase allocation
     phase_weights = {
@@ -379,6 +388,9 @@ def transcribe_with_callbacks(
 
         # Phase 4: Diarization (manual progress since pyannote doesn't expose it)
         if enable_diarization:
+            status_callback("Loading diarization pipeline (this may take a while)...")
+            from whisperx.diarize import DiarizationPipeline
+
             if status_callback:
                 status_callback("Identifying speakers...")
 
@@ -390,6 +402,12 @@ def transcribe_with_callbacks(
                     status_callback("Using cached diarization model...")
                 diarize_model = cached_models['diarization']
             else:
+                # To avoid insufficient memory
+                import gc
+                gc.collect()
+                torch.cuda.empty_cache()
+                del model
+
                 diarize_model = DiarizationPipeline(
                     use_auth_token=kwargs.get('hf_token'),
                     device=torch.device(device)

@@ -13,6 +13,8 @@ class GUIFunctions():
         self.main = MainWindow
         self.ui = MainWindow.ui
 
+        # MainWindow.setWindowFlag(Qt.WindowType.FramelessWindowHint)
+
         self.transcriptionActive = False
         self.blinkingStatusLabel = self.ui.statusLabel
 

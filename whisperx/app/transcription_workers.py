@@ -9,7 +9,11 @@ import time
 from typing import Optional, Dict, Any
 
 from whisperx.app.app_config import TranscriptionConfig
+from dotenv import load_dotenv
+import os
 
+load_dotenv()  # Load variables from .env file
+hf_token = os.getenv('ACCESS_TOKEN')
 
 class WorkerSignals(QObject):
     """Signals for worker thread communication."""
@@ -69,11 +73,12 @@ class TranscriptionWorker(QRunnable):
             self.signals.status_updated.emit("Starting transcription...")
             self.signals.progress_updated.emit(0)
 
+            self._on_status_update("Importing necessary libraries...")
             # LAZY IMPORT - only loads when transcription actually starts
             # This is critical for fast startup time
             from whisperx.transcribe import transcribe_with_callbacks
             from whisperx.utils import format_timestamp
-
+            self._on_status_update("Importing necessary libraries DONE...")
             # Perform transcription using WhisperX's built-in function
             result = transcribe_with_callbacks(
                 audio_file=self.config.audio_file,
@@ -88,7 +93,8 @@ class TranscriptionWorker(QRunnable):
                 cached_models=self.cached_models,
                 return_models=True,  # Request models for caching
                 progress_callback=self._on_progress_update,
-                status_callback=self._on_status_update
+                status_callback=self._on_status_update,
+                hf_token=hf_token
             )
 
             # Extract loaded models for caching
